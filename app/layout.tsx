@@ -1,0 +1,1 @@
+import"./globals.css";export const metadata={title:"CommonGround — Aster community",description:"A fictional patient-led research community demo."};export default function L({children}){return <html lang="en"><body>{children}</body></html>}
