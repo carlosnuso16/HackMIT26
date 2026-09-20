@@ -1,6 +1,22 @@
-# vinext-starter
+# CommonGround
 
-A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
+Patient-led rare-disease research community prototype for HackMIT (FSHD demo).  
+See **[HANDOFF.md](./HANDOFF.md)**, **[CONTEXT.md](./CONTEXT.md)**, **[IMPLEMENTED.md](./IMPLEMENTED.md)**, and **[DEMO_SCRIPT.md](./DEMO_SCRIPT.md)**.
+
+```bash
+npm ci   # or npm install
+npm run dev    # http://localhost:5173
+npm test
+```
+
+Product UI: `app/page.tsx` + `components/commonground/` + `lib/{demo-content,review-flow,alias-store,aggregate-signal}`.
+
+---
+
+# vinext-starter (hosting scaffold)
+
+A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support. CommonGround currently uses the static frontend path only; ChatGPT auth and D1 examples are unused by the demo.
+
 
 ## Prerequisites
 

@@ -1,30 +1,303 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Check, ChevronRight, Heart, Home, LockKeyhole, MessageCircle, Plus, ShieldCheck, Sparkles, Users } from "lucide-react";
 
-type Tab="home"|"research"|"profile";
-type Pending={text:string;topic:string}|null;
-const names=["CedarHarbor","JuniperSky","QuietComet","WillowCurrent","AmberOrbit"];
-const seed=[{name:"River",initial:"R",color:"coral",topic:"Living with FSHD",text:"What would make an in-person study visit feel worth the energy it takes to get there? Knowing the schedule early would change everything.",hearts:24,replies:9},{name:"NorthStar",initial:"N",color:"violet",topic:"Research room",text:"I want studies to measure fatigue in ways that reflect real life—not just a good day in clinic.",hearts:38,replies:16},{name:"MossLine",initial:"M",color:"gold",topic:"Everyday adaptations",text:"Remote options matter. A virtual follow-up made the week feel possible.",hearts:51,replies:12}];
-const topics=["Living with FSHD","Research room","Everyday adaptations","Care partners"];
-export default function Home(){
- const [tab,setTab]=useState<Tab>("home"),[alias,setAlias]=useState(names[0]),[draft,setDraft]=useState(""),[topic,setTopic]=useState("Research room"),[pending,setPending]=useState<Pending>(null),[approved,setApproved]=useState<Pending[]>([]),[liked,setLiked]=useState<number[]>([]),[support,setSupport]=useState(false);
- useEffect(()=>{const saved=localStorage.getItem("cg-safe-alias");if(saved)setAlias(saved)},[]);
- const regenerate=()=>{const next=names[(names.indexOf(alias)+1)%names.length];setAlias(next);localStorage.setItem("cg-safe-alias",next)};
- const submit=()=>{if(!draft.trim())return;setPending({text:draft.trim(),topic});setDraft("")};
- const approve=()=>{if(!pending)return;setApproved([pending,...approved]);setPending(null);setTab("research")};
- const erase=()=>{localStorage.removeItem("cg-safe-alias");setAlias(names[0]);setApproved([]);setPending(null);setDraft("");setSupport(false);setTab("home")};
- const themeCount=42+approved.filter(p=>p.topic==="Research room").length;
- return <main className="app"><header><button className="brand" onClick={()=>setTab("home")}><span>C</span>CommonGround</button><nav><button className={tab==="home"?"active":""} onClick={()=>setTab("home")}><Home size={16}/>Community</button><button className={tab==="research"?"active":""} onClick={()=>setTab("research")}><Sparkles size={16}/>Research room</button></nav><button className="avatar teal" onClick={()=>setTab("profile")}>{alias[0]}</button></header>
- <div className="privacy"><ShieldCheck size={15}/><span>Prototype safety boundary: posts live only in this browser session. Your generated pseudonym is the only thing saved locally. No health record, contact detail, or trial eligibility data is collected.</span></div>
- <div className="layout"><aside><button className={tab==="home"?"side active": "side"} onClick={()=>setTab("home")}><Home size={17}/>Community home</button><button className={tab==="research"?"side active": "side"} onClick={()=>setTab("research")}><Sparkles size={17}/>Research room</button><button className={tab==="profile"?"side active": "side"} onClick={()=>setTab("profile")}><Users size={17}/>My anonymous space</button><hr/><p>TOPICS</p>{topics.map(x=><button className="topic" key={x} onClick={()=>{setTopic(x);setTab("home")}}>{x}</button>)}<div className="boundary"><LockKeyhole size={17}/><b>Present, not exposed.</b><span>This is discussion—not diagnosis, recruitment, or medical advice.</span></div></aside>
- <section className="content">{tab==="home"&&<><div className="intro"><p>FSHD COMMUNITY</p><h1>Make research answer to real life.</h1><span>Read quietly. Talk when ready. Bring lived experience into the questions research asks.</span><div className="members"><i className="avatar coral">R</i><i className="avatar violet">N</i><i className="avatar gold">M</i><b>126 fictional demo members are in the conversation</b></div></div><Composer alias={alias} topic={topic} setTopic={setTopic} draft={draft} setDraft={setDraft} submit={submit}/>{pending&&<Review post={pending} approve={approve} discard={()=>setPending(null)}/>}<div className="feed-title"><b>Conversations</b><span>fictional examples</span></div>{seed.map((p,i)=><Post key={i} {...p} liked={liked.includes(i)} like={()=>setLiked(liked.includes(i)?liked.filter(x=>x!==i):[...liked,i])}/>)}</>}
- {tab==="research"&&<Research themes={approved} count={themeCount} support={support} setSupport={setSupport} back={()=>setTab("home")}/>}
- {tab==="profile"&&<Profile alias={alias} regenerate={regenerate} erase={erase}/>}</section>
- <aside className="right"><div className="signal"><p>PATIENT-LED SIGNAL</p><h2>What the community is moving forward</h2><span><i className="dot coral"/>Fatigue as lived, not abstract <b>88</b></span><span><i className="dot teal"/>Remote-first study design <b>76</b></span><span><i className="dot violet"/>Arm & shoulder function <b>64</b></span><small>Fictional prototype counts</small></div><div className="promise"><p>COMMUNITY PROMISE</p><b>People are more than data points.</b><span>In a real version, trained moderators and patient advisors would review themes before they inform a study concept.</span></div></aside></div></main>
+import { useEffect, useMemo, useState } from "react";
+import {
+  Home,
+  LockKeyhole,
+  ShieldCheck,
+  Sparkles,
+  Users,
+} from "lucide-react";
+import { Composer } from "@/components/commonground/Composer";
+import { Post, type FeedPost } from "@/components/commonground/Post";
+import { Profile } from "@/components/commonground/Profile";
+import { ResearchRoom } from "@/components/commonground/ResearchRoom";
+import { Review } from "@/components/commonground/Review";
+import { SignalPanel } from "@/components/commonground/SignalPanel";
+import { buildAggregateSignal } from "@/lib/aggregate-signal";
+import {
+  createLocalStorageAliasStore,
+  nextAlias,
+  resolveInitialAlias,
+} from "@/lib/alias-store";
+import { getDemoContent } from "@/lib/demo-content";
+import {
+  getReviewCopy,
+  isResearchTopic,
+  nextTabAfterApprove,
+  stripThemeForResearch,
+  toLocalFeedPost,
+  type LocalFeedPost,
+  type PendingPost,
+  type ResearchTheme,
+} from "@/lib/review-flow";
+
+type Tab = "home" | "research" | "profile";
+
+const content = getDemoContent();
+
+function getAliasStore() {
+  return createLocalStorageAliasStore();
 }
-function Composer(p:{alias:string;topic:string;setTopic:(v:string)=>void;draft:string;setDraft:(v:string)=>void;submit:()=>void}){return <section className="composer"><span className="avatar teal">{p.alias[0]}</span><div><textarea aria-label="Write a community post" value={p.draft} onChange={e=>p.setDraft(e.target.value)} placeholder="What would you like people—and research teams—to understand?"/><p><ShieldCheck size={13}/>Don’t share names, contact details, medical advice, or anything you would not want repeated.</p><footer><select value={p.topic} onChange={e=>p.setTopic(e.target.value)}>{topics.map(x=><option key={x}>{x}</option>)}</select><button onClick={p.submit} disabled={!p.draft.trim()}>Review before sharing <ChevronRight size={14}/></button></footer></div></section>}
-function Review(p:{post:Pending;approve:()=>void;discard:()=>void}){if(!p.post)return null;const research=p.post.topic==="Research room";return <section className="review"><p>LOCAL SAFETY REVIEW</p><h2>{research?"Turn this into an anonymous theme?":"Share this local discussion post?"}</h2><blockquote>{p.post.text}</blockquote><span>{research?"Only the topic and a one-count anonymous signal will move to the Research room. Your words will not.":"This post will appear only in this browser session and is not sent anywhere."}</span><footer><button className="plain" onClick={p.discard}>Discard</button><button onClick={p.approve}><Check size={14}/>{research?"Add anonymous theme":"Share locally"}</button></footer></section>}
-function Post(p:{name:string;initial:string;color:string;topic:string;text:string;hearts:number;replies:number;liked:boolean;like:()=>void}){return <article className="post"><span className={"avatar "+p.color}>{p.initial}</span><div><header><b>{p.name}</b><small>fictional member · {p.topic}</small></header><p>{p.text}</p><footer><button className={p.liked?"liked":""} onClick={p.like}><Heart size={15} fill={p.liked?"currentColor":"none"}/>{p.hearts+(p.liked?1:0)}</button><span><MessageCircle size={15}/>{p.replies} fictional replies</span></footer></div></article>}
-function Research(p:{themes:Pending[];count:number;support:boolean;setSupport:(v:boolean)=>void;back:()=>void}){const has=p.themes.some(x=>x?.topic==="Research room");return <div className="room"><button className="back" onClick={p.back}>← Community home</button><p>PATIENT-LED RESEARCH ROOM</p><h1>Turn conversation into a better question.</h1><span>Only reviewable, anonymous themes move here. Individual posts never become an eligibility score, a participant profile, or a recruitment list.</span><section className="feature"><div><small>OPEN COMMUNITY THEME</small><h2>How should an FSHD study account for an unpredictable fatigue day?</h2><p>{has?"A local community member added an anonymous Research room theme. The protected signal below changed—not their words.":"Patients are discussing flexible scheduling, remote options, and outcomes that reflect everyday function."}</p></div><aside><b>{p.count}</b><span>fictional + local demo support</span><button disabled={p.support} onClick={()=>p.setSupport(true)}><Plus size={14}/>{p.support?"Local support added":"Add local support"}</button></aside></section><div className="research-grid"><section><p>PROTECTED SIGNAL</p><h2>What is safe to carry forward</h2><ul><li>Flexible visit windows</li><li>Remote check-in options</li><li>Patient-defined fatigue outcomes</li></ul>{has&&<div className="new-theme"><Check size={14}/>One anonymous theme added in this session</div>}</section><section><p>FICTIONAL PROTOCOL IMPLICATION</p><h2>Design for variable energy.</h2><span>Use a remote-first visit model and a flexible reschedule window. This is a design prompt, not a feasibility prediction or treatment recommendation.</span></section></div><div className="governance"><ShieldCheck size={16}/>In a real platform: community moderation → patient-advisory review → ethics review → separate opt-in outreach.</div></div>}
-function Profile(p:{alias:string;regenerate:()=>void;erase:()=>void}){return <div className="profile"><p>YOUR ANONYMOUS SPACE</p><div className="profile-card"><span className="avatar teal big">{p.alias[0]}</span><div><h1>{p.alias}</h1><span>A generated pseudonym, not a legal name, diagnosis proof, or study ID.</span></div><button onClick={p.regenerate}>Generate another</button></div><div className="profile-grid"><section><h2>Visible to the community</h2><p>Your generated alias can provide continuity without asking you to disclose who you are.</p><b><Check size={15}/>No age, location, or health profile</b></section><section><h2>Control this demo</h2><p>Posts and local themes disappear when this session ends. Your alias is saved in this browser only.</p><button className="danger" onClick={p.erase}>Erase local demo data</button></section></div></div>}
+
+export default function HomePage() {
+  const [tab, setTab] = useState<Tab>("home");
+  // SSR and first client paint share the default; hydrate from storage after mount.
+  const [alias, setAlias] = useState(content.aliasPool[0]!);
+  const [draft, setDraft] = useState("");
+  const [topic, setTopic] = useState(content.researchTopic);
+  const [pending, setPending] = useState<PendingPost | null>(null);
+  const [researchThemes, setResearchThemes] = useState<ResearchTheme[]>([]);
+  const [localPosts, setLocalPosts] = useState<LocalFeedPost[]>([]);
+  const [liked, setLiked] = useState<string[]>([]);
+  const [support, setSupport] = useState(false);
+
+  useEffect(() => {
+    // External system: browser alias store (cg-safe-alias).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate from localStorage after SSR
+    setAlias(resolveInitialAlias(getAliasStore(), content.aliasPool));
+  }, []);
+
+  const aggregate = useMemo(
+    () =>
+      buildAggregateSignal({
+        content,
+        researchThemes,
+        localSupport: support,
+      }),
+    [researchThemes, support],
+  );
+
+  const regenerate = () => {
+    const next = nextAlias(alias, content.aliasPool);
+    setAlias(next);
+    getAliasStore().write(next);
+  };
+
+  const submit = () => {
+    if (!draft.trim()) return;
+    setPending({ text: draft.trim(), topic });
+    setDraft("");
+  };
+
+  const approve = () => {
+    if (!pending) return;
+    if (isResearchTopic(pending.topic, content.researchTopic)) {
+      const theme = stripThemeForResearch(pending, content.researchTopic);
+      if (theme) setResearchThemes((prev) => [theme, ...prev]);
+    } else {
+      setLocalPosts((prev) => [toLocalFeedPost(pending, alias), ...prev]);
+    }
+    const nextTab = nextTabAfterApprove(pending.topic, content.researchTopic);
+    setPending(null);
+    setTab(nextTab);
+  };
+
+  const erase = () => {
+    getAliasStore().clear();
+    setAlias(content.aliasPool[0]!);
+    setResearchThemes([]);
+    setLocalPosts([]);
+    setPending(null);
+    setDraft("");
+    setSupport(false);
+    setLiked([]);
+    setTopic(content.researchTopic);
+    setTab("home");
+  };
+
+  const toggleLike = (key: string) => {
+    setLiked((prev) =>
+      prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key],
+    );
+  };
+
+  const feed: Array<FeedPost & { key: string }> = [
+    ...localPosts.map((p) => ({ ...p, key: p.id })),
+    ...content.seedPosts.map((p, i) => ({ ...p, key: `seed-${i}` })),
+  ];
+
+  const reviewCopy = pending
+    ? getReviewCopy(pending, content.researchTopic)
+    : null;
+
+  return (
+    <main className="app">
+      <header>
+        <button type="button" className="brand" onClick={() => setTab("home")}>
+          <span>C</span>CommonGround
+        </button>
+        <nav>
+          <button
+            type="button"
+            className={tab === "home" ? "active" : ""}
+            onClick={() => setTab("home")}
+          >
+            <Home size={16} />
+            Community
+          </button>
+          <button
+            type="button"
+            className={tab === "research" ? "active" : ""}
+            onClick={() => setTab("research")}
+          >
+            <Sparkles size={16} />
+            Research room
+          </button>
+        </nav>
+        <button
+          type="button"
+          className="avatar teal"
+          onClick={() => setTab("profile")}
+          aria-label="Open anonymous profile"
+        >
+          {alias[0]}
+        </button>
+      </header>
+
+      <div className="privacy">
+        <ShieldCheck size={15} />
+        <span>
+          Prototype safety boundary: posts live only in this browser session.
+          Your generated pseudonym is the only thing saved locally. No health
+          record, contact detail, or trial eligibility data is collected.
+        </span>
+      </div>
+
+      <div className="layout">
+        <aside>
+          <button
+            type="button"
+            className={tab === "home" ? "side active" : "side"}
+            onClick={() => setTab("home")}
+          >
+            <Home size={17} />
+            Community home
+          </button>
+          <button
+            type="button"
+            className={tab === "research" ? "side active" : "side"}
+            onClick={() => setTab("research")}
+          >
+            <Sparkles size={17} />
+            Research room
+          </button>
+          <button
+            type="button"
+            className={tab === "profile" ? "side active" : "side"}
+            onClick={() => setTab("profile")}
+          >
+            <Users size={17} />
+            My anonymous space
+          </button>
+          <hr />
+          <p>TOPICS</p>
+          {content.topics.map((t) => (
+            <button
+              type="button"
+              className="topic"
+              key={t}
+              onClick={() => {
+                setTopic(t);
+                setTab("home");
+              }}
+            >
+              {t}
+            </button>
+          ))}
+          <div className="boundary">
+            <LockKeyhole size={17} />
+            <b>Present, not exposed.</b>
+            <span>
+              This is discussion—not diagnosis, recruitment, or medical advice.
+            </span>
+          </div>
+        </aside>
+
+        <section className="content">
+          {tab === "home" && (
+            <>
+              <div className="intro">
+                <p>{content.communityHeading}</p>
+                <h1>{content.communityTagline}</h1>
+                <span>{content.communitySubcopy}</span>
+                <div className="members">
+                  <i className="avatar coral">R</i>
+                  <i className="avatar violet">N</i>
+                  <i className="avatar gold">M</i>
+                  <b>
+                    {content.fictionalMemberCount} fictional demo members are in
+                    the conversation
+                  </b>
+                </div>
+              </div>
+
+              <Composer
+                alias={alias}
+                topic={topic}
+                topics={content.topics}
+                draft={draft}
+                onTopicChange={setTopic}
+                onDraftChange={setDraft}
+                onSubmit={submit}
+              />
+
+              {pending && reviewCopy && (
+                <Review
+                  post={pending}
+                  copy={reviewCopy}
+                  onApprove={approve}
+                  onDiscard={() => setPending(null)}
+                />
+              )}
+
+              <div className="feed-title">
+                <b>Conversations</b>
+                <span>fictional examples + this-session posts</span>
+              </div>
+              {feed.map((p) => (
+                <Post
+                  key={p.key}
+                  name={p.name}
+                  initial={p.initial}
+                  color={p.color}
+                  topic={p.topic}
+                  text={p.text}
+                  hearts={p.hearts}
+                  replies={p.replies}
+                  local={p.local}
+                  liked={liked.includes(p.key)}
+                  onLike={() => toggleLike(p.key)}
+                />
+              ))}
+            </>
+          )}
+
+          {tab === "research" && (
+            <ResearchRoom
+              content={content}
+              themeCount={aggregate.themeCount}
+              hasLocalResearchTheme={aggregate.hasLocalResearchTheme}
+              support={support}
+              onSupport={() => setSupport(true)}
+              onBack={() => setTab("home")}
+            />
+          )}
+
+          {tab === "profile" && (
+            <Profile
+              alias={alias}
+              onRegenerate={regenerate}
+              onErase={erase}
+            />
+          )}
+        </section>
+
+        <SignalPanel
+          signals={aggregate.sidebarSignals}
+          communityPromise={content.communityPromise}
+        />
+      </div>
+    </main>
+  );
+}
