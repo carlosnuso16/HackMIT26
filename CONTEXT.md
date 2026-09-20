@@ -1,23 +1,26 @@
-# CommonGround domain glossary
+# Cyto domain glossary
 
-Shared language for product and architecture. Prefer these names in code and docs.
+Shared language for product and code. Prefer these terms in UI copy and module names.
 
 | Term | Meaning |
 | --- | --- |
-| **Condition pack** | Demo content for one fictional/rare-condition community (aliases, topics, seed posts, research copy). Loaded via `getDemoContent`. |
-| **Safe alias** | Pseudonymous display name. The only value persisted in the browser (`cg-safe-alias`). Not a legal name, diagnosis proof, or study ID. |
-| **Pending post** | Draft that has entered local safety review but is not yet shared or themed. |
-| **Local discussion post** | Session-only community post that stays on the home feed. Never crosses into the Research room as full text. |
-| **Research theme** | Anonymous, count-like signal derived from a Research-room review. Carries topic + timestamp only—**no post text**. |
-| **Local safety review** | Affirmation step before sharing (P5). Explains what will be grouped vs kept local. |
-| **Protected signal** | Aggregate, privacy-preserving counts researchers may see (P6 / R1). No aliases tied to health data. |
-| **Research room** | Patient-led space for anonymous themes and fictional protocol implications—not recruitment or eligibility. |
-| **Governance path** | Intended real-world sequence: moderation → patient-advisory → ethics → separate opt-in outreach. Not automated in the MVP. |
-| **Demo reset** | Erase local alias + session posts/themes/support so a presentation starts clean. |
+| **FOV** | Field of view — the uploaded or demo microscopy image under analysis. |
+| **Demo cell set** | Bundled sample FOVs shipped with the app for offline demos. |
+| **Phenotype pipeline** | Ordered stages from ingest to ranked perturbation candidates. |
+| **PhenotypeEngine** | Interface that runs the pipeline; mock or real adapters implement it. |
+| **Cell instance** | A segmented cell (or ROI) inside an FOV, selectable in Explorer. |
+| **Morphology features** | Numeric descriptors (area, eccentricity, texture proxies, channel intensities). |
+| **Phenotype score** | Aggregate score summarizing how “perturbed / severe / interesting” a cell or FOV looks (demo metric). |
+| **Perturbation candidate** | A proposed intervention (e.g. drug class, gene KO) with multi-axis scores. |
+| **Explorer** | Read-only inspection mode for the FOV and cell instances. |
+| **Cell map / stage** | Spatial view of segmented cells in the FOV. Pan to browse; click a cell to inspect features—not for diagnosis. |
+| **Perturb Studio** | Editing mode: apply a simulated perturbation and rescore. |
+| **Compare** | Side-by-side candidate (or baseline vs candidate) diff with semantic deltas. |
+| **Copilot** | Mode-aware assistant panel; may be scripted or LLM-backed. |
+| **Workspace** | In-memory session state for one FOV analysis (Zustand store). |
 
-## Explicit non-goals (this prototype)
+## Explicit non-goals
 
-- Medical advice, diagnosis, or eligibility decisions
-- Trial matching or recruitment lists
-- Health-record collection or individual-level researcher export
-- Server-side persistence of posts (until consent + authorization are designed)
+- Clinical diagnosis or treatment recommendations.
+- DNA sequence editing (that is Helix’s domain).
+- Patient community / trial recruitment (retired CommonGround scope).

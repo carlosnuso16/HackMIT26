@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#1e242b"/>
+  <g fill="none" stroke="#3a4550" stroke-width="1">
+    <path d="M0 128h1024M0 256h1024M0 384h1024M0 512h1024M0 640h1024M0 768h1024M0 896h1024"/>
+    <path d="M128 0v1024M256 0v1024M384 0v1024M512 0v1024M640 0v1024M768 0v1024M896 0v1024"/>
+  </g>
+  <text x="32" y="48" fill="#8a949e" font-family="monospace" font-size="28">Cyto sample plate</text>
+</svg>
